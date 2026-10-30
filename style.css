@@ -286,6 +286,7 @@ body {
   font-family: inherit;
   font-size: 11px;
 }
+<<<<<<< HEAD
 /* Upgrade picker */
 
 .variant-button {
@@ -362,3 +363,5 @@ body {
 
   pointer-events: none;
 }
+=======
+>>>>>>> 4f2bf296f913c0bcf4af8e18fdf12bec8d942549

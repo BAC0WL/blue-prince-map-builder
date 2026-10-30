@@ -150,14 +150,17 @@ const OPPOSITE = { n: "s", s: "n", e: "w", w: "e" };
 
 const ROTATE_DURATION = 150;
 
-function roomSlug(roomName) {
-    return SLUG_OVERRIDES[roomName]
+function roomSlug(roomName, variant = 0) {
+    const slug = SLUG_OVERRIDES[roomName]
         ?? roomName.toLowerCase().replace(/[\s']/g, "");
+
+    // Upgrades live at slug-1, slug-2, ... (e.g. nook-2-e.png)
+    return variant > 0 ? `${slug}-${variant}` : slug;
 }
 
 
-function imageCandidates(roomName, dir) {
-    const slug = roomSlug(roomName);
+function imageCandidates(roomName, dir, variant = 0) {
+    const slug = roomSlug(roomName, variant);
     const axis = (dir === "n" || dir === "s") ? "ns" : "ew";
 
     const suffixes = [
@@ -177,11 +180,11 @@ function imageCandidates(roomName, dir) {
 
 const resolvedImages = new Map();
 
-function resolveRoomImage(roomName, dir) {
-    const key = `${roomName}|${dir}`;
+function resolveRoomImage(roomName, dir, variant = 0) {
+    const key = `${roomName}|${variant}|${dir}`;
 
     if (!resolvedImages.has(key)) {
-        const candidates = imageCandidates(roomName, dir);
+        const candidates = imageCandidates(roomName, dir, variant);
 
         const tryLoad = (i) => new Promise((resolve) => {
             const probe = new Image();
@@ -198,8 +201,45 @@ function resolveRoomImage(roomName, dir) {
     return resolvedImages.get(key);
 }
 
-async function setRoomImage(img, roomName, dir) {
-    img.src = encodeURI(await resolveRoomImage(roomName, dir));
+async function setRoomImage(img, roomName, dir, variant = 0) {
+    img.src = encodeURI(await resolveRoomImage(roomName, dir, variant));
+}
+
+function imageExists(src) {
+    return new Promise((resolve) => {
+        const probe = new Image();
+        probe.onload = () => resolve(true);
+        probe.onerror = () => resolve(false);
+        probe.src = encodeURI(src);
+    });
+}
+
+// Upgrade variants a room has, found by probing slug-1, slug-2, ...
+// until one is missing. Immovable upgrades use the -4 suffix.
+const roomVariants = new Map();
+
+function findVariants(roomName) {
+    if (!roomVariants.has(roomName)) {
+        roomVariants.set(roomName, (async () => {
+            const variants = [];
+
+            for (let v = 1; ; v++) {
+                const slug = roomSlug(roomName, v);
+
+                const found = await Promise.all(
+                    ["n", "e", "4"].map(s => imageExists(`images/${slug}-${s}.png`))
+                );
+
+                if (!found.includes(true)) {
+                    return variants;
+                }
+
+                variants.push(v);
+            }
+        })());
+    }
+
+    return roomVariants.get(roomName);
 }
 
 let hoveredCell = null;
@@ -237,7 +277,13 @@ for (let row = 0; row < ROWS; row++) {
 
             const roomName = e.dataTransfer.getData("text/plain");
 
-            placeRoom(cell, roomName);
+            const variant = Number(
+                e.dataTransfer.getData("application/x-room-variant")
+            ) || 0;
+
+            placeRoom(cell, roomName, variant);
+
+            closeVariantPicker();
         });
 
         // Track which slot the keyboard shortcuts act on
@@ -255,7 +301,7 @@ for (let row = 0; row < ROWS; row++) {
     }
 }
 
-function placeRoom(cell, roomName) {
+function placeRoom(cell, roomName, variant = 0) {
 
     cell.innerHTML = "";
 
@@ -264,6 +310,7 @@ function placeRoom(cell, roomName) {
     roomTile.classList.add("room-tile");
 
     roomTile.dataset.room = roomName;
+    roomTile.dataset.variant = variant;
     roomTile.dataset.direction = "n";
 
     roomTile.innerHTML = `
@@ -276,7 +323,7 @@ function placeRoom(cell, roomName) {
     </div>
   `;
 
-    setRoomImage(roomTile.querySelector("img"), roomName, "n");
+    setRoomImage(roomTile.querySelector("img"), roomName, "n", variant);
 
     cell.appendChild(roomTile);
 }
@@ -345,6 +392,26 @@ for (const categoryName in ROOM_CATEGORIES) {
                 }
             );
 
+            findVariants(roomName).then(variants => {
+                if (variants.length === 0) {
+                    return;
+                }
+
+                const more = document.createElement("button");
+
+                more.classList.add("variant-button");
+                more.textContent = "+";
+                more.title = "Show upgrades";
+                more.draggable = false;
+
+                more.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    toggleVariantPicker(room, roomName, variants);
+                });
+
+                room.appendChild(more);
+            });
+
             content.appendChild(room);
         });
 
@@ -366,10 +433,94 @@ for (const categoryName in ROOM_CATEGORIES) {
     roomList.appendChild(section);
 }
 
+// Floating popover listing a room's base art and upgrades.
+// Fixed-positioned on the body so it never shifts the sidebar.
+let variantPicker = null;
+
+// Rooms with many upgrades lay them out in a grid; others are one column
+const PICKER_COLUMNS = {
+    "Cloister": 2,
+    "Spare Room": 3,
+};
+
+function closeVariantPicker() {
+    variantPicker?.remove();
+    variantPicker = null;
+}
+
+function toggleVariantPicker(room, roomName, variants) {
+
+    if (variantPicker?.dataset.room === roomName) {
+        closeVariantPicker();
+        return;
+    }
+
+    closeVariantPicker();
+
+    variantPicker = document.createElement("div");
+
+    variantPicker.classList.add("variant-picker");
+    variantPicker.dataset.room = roomName;
+
+    variantPicker.style.setProperty(
+        "--columns", PICKER_COLUMNS[roomName] ?? 1
+    );
+
+    variants.forEach(variant => {
+
+        const option = document.createElement("div");
+
+        option.classList.add("variant-option");
+        option.draggable = true;
+
+        option.innerHTML = `<img alt="${roomName} +${variant}">`;
+
+        setRoomImage(option.querySelector("img"), roomName, "n", variant);
+
+        option.addEventListener("dragstart", (e) => {
+            e.dataTransfer.setData("text/plain", roomName);
+            e.dataTransfer.setData("application/x-room-variant", String(variant));
+        });
+
+        variantPicker.appendChild(option);
+    });
+
+    document.body.appendChild(variantPicker);
+
+    // Sit just below the room, flipping above it if there's no space
+    const rect = room.getBoundingClientRect();
+    const pickerRect = variantPicker.getBoundingClientRect();
+
+    const left = Math.min(
+        rect.left,
+        window.innerWidth - pickerRect.width - 8
+    );
+
+    const top = rect.bottom + 6 + pickerRect.height > window.innerHeight
+        ? rect.top - 6 - pickerRect.height
+        : rect.bottom + 6;
+
+    variantPicker.style.left = `${Math.max(8, left)}px`;
+    variantPicker.style.top = `${Math.max(8, top)}px`;
+}
+
+document.addEventListener("click", (e) => {
+    if (variantPicker && !variantPicker.contains(e.target)) {
+        closeVariantPicker();
+    }
+});
+
+document.querySelector(".sidebar")
+    .addEventListener("scroll", closeVariantPicker);
+
+window.addEventListener("resize", closeVariantPicker);
+
 const roomSearch =
     document.getElementById("room-search");
 
 roomSearch.addEventListener("input", () => {
+
+    closeVariantPicker();
 
     const query =
         roomSearch.value.trim().toLowerCase();
@@ -408,8 +559,9 @@ async function rotateTile(roomTile, step) {
 
     const roomName = roomTile.dataset.room;
 
+    const variant = Number(roomTile.dataset.variant) || 0;
 
-    const northSrc = await resolveRoomImage(roomName, "n");
+    const northSrc = await resolveRoomImage(roomName, "n", variant);
 
     if (northSrc.endsWith("-4.png")) {
         return;
@@ -419,7 +571,7 @@ async function rotateTile(roomTile, step) {
         DIRECTIONS.indexOf(roomTile.dataset.direction);
 
     const currentSrc =
-        await resolveRoomImage(roomName, DIRECTIONS[current]);
+        await resolveRoomImage(roomName, DIRECTIONS[current], variant);
 
 
     let next;
@@ -427,7 +579,7 @@ async function rotateTile(roomTile, step) {
 
     for (let i = 1; i < 4; i++) {
         const dir = DIRECTIONS[(current + step * i + 4) % 4];
-        const src = await resolveRoomImage(roomName, dir);
+        const src = await resolveRoomImage(roomName, dir, variant);
 
         if (src !== currentSrc) {
             next = dir;
@@ -482,6 +634,11 @@ async function rotateTile(roomTile, step) {
 window.addEventListener("keydown", (e) => {
 
     if (e.target instanceof HTMLInputElement) {
+        return;
+    }
+
+    if (e.key === "Escape") {
+        closeVariantPicker();
         return;
     }
 

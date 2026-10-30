@@ -83,8 +83,12 @@ body {
 .grid-container {
   position: relative;
 
-  width: 500px;
-  height: 900px;
+  /* Largest 5:9 grid that fits the space beside the sidebar,
+     but never so small the rooms become unreadable */
+  height: max(360px, min(100vh - 24px, (100vw - 520px - 24px) * 9 / 5));
+  aspect-ratio: 5 / 9;
+
+  flex-shrink: 0;
 
   margin: auto;
 
@@ -123,8 +127,8 @@ body {
 .room-tile {
   position: relative;
 
-  width: 94px;
-  height: 94px;
+  width: 94%;
+  height: 94%;
 
   margin: 0px;
 

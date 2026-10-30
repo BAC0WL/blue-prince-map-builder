@@ -136,7 +136,6 @@ const ROOM_CATEGORIES = {
         "Conservatory",
         "Lost & Found",
         "Closed Exhibit",
-        "Throne of the Blue Prince"
     ]
 };
 

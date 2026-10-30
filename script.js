@@ -3,8 +3,6 @@ const grid = document.getElementById("grid");
 const ROWS = 9;
 const COLS = 5;
 
-const CELL_SIZE = 100;
-
 const ROOM_CATEGORIES = {
     "Rooms 001-012": [
         "The Foundation",
@@ -214,11 +212,12 @@ for (let row = 0; row < ROWS; row++) {
         cell.classList.add("cell");
 
         cell.style.position = "absolute";
-        cell.style.left = `${col * CELL_SIZE}px`;
-        cell.style.top = `${row * CELL_SIZE}px`;
+        // Percentages so the grid can scale to fit the window
+        cell.style.left = `${col * 100 / COLS}%`;
+        cell.style.top = `${row * 100 / ROWS}%`;
 
-        cell.style.width = `${CELL_SIZE}px`;
-        cell.style.height = `${CELL_SIZE}px`;
+        cell.style.width = `${100 / COLS}%`;
+        cell.style.height = `${100 / ROWS}%`;
 
         // Drag handling
         cell.addEventListener("dragover", (e) => {

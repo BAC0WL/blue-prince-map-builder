@@ -214,8 +214,6 @@ function imageExists(src) {
     });
 }
 
-// Upgrade variants a room has, found by probing slug-1, slug-2, ...
-// until one is missing. Immovable upgrades use the -4 suffix.
 const roomVariants = new Map();
 
 function findVariants(roomName) {

@@ -85,8 +85,6 @@ body {
 .grid-container {
   position: relative;
 
-  /* Largest 5:9 grid that fits the space beside the sidebar,
-     but never so small the rooms become unreadable */
   height: max(360px, min(100vh - 24px, (100vw - 520px - 24px) * 9 / 5));
   aspect-ratio: 5 / 9;
 
@@ -286,7 +284,7 @@ body {
   font-family: inherit;
   font-size: 11px;
 }
-<<<<<<< HEAD
+
 /* Upgrade picker */
 
 .variant-button {
@@ -363,5 +361,3 @@ body {
 
   pointer-events: none;
 }
-=======
->>>>>>> 4f2bf296f913c0bcf4af8e18fdf12bec8d942549

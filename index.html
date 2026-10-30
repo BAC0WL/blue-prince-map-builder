@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blue Prince Planner</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="app">
+
+    <aside class="sidebar">
+      <h2>Rooms</h2>
+
+      <input type="search" class="room-search" id="room-search" placeholder="Search rooms..." autocomplete="off">
+
+      <div class="room-list" id="room-list"></div>
+    </aside>
+
+    <main class="grid-container" id="grid">
+    </main>
+
+  </div>
+
+  <div class="controls-hint">
+    Hover a room: <kbd>←</kbd> <kbd>→</kbd> to rotate, <kbd>Backspace</kbd> to delete
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
